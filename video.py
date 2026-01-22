@@ -1096,32 +1096,30 @@ def version_command(message):
         bot.reply_to(message, f"❌ Ошибка: {e}")
 
 # Запуск бота
-def main():
+if __name__ == '__main__':
     import threading
-    try:
-        print("🤖 Запуск бота...")
-        init_db()
-        initialize_channels()
-        # Запускаем проверку активности каналов в отдельном потоке
-        threading.Thread(target=check_channels_activity, daemon=True).start()
-        # Основной цикл обработки сообщений с перезапуском
-        print("✅ Бот готов к работе!")
-        while True:
-            try:
-                bot.polling(none_stop=True, interval=0, timeout=20)
-            except Exception as e:
-                logging.error(f"Ошибка в polling: {e}")
-                time.sleep(5)  # Пауза перед перезапуском
-                time.sleep(5)  # Пауза перед перезапуском
-    except KeyboardInterrupt:
-        print("⏹️ Остановка бота")
-    except Exception as e:
-        logging.error(f"Критическая ошибка в main: {e}")
-        bot.send_message(ADMIN_ID, f"❌ Критическая ошибка в main: {e}")
-        raise
-    finally:
-        print("👋 Бот завершил работу")
-        bot.stop_polling()
+    
+    print("🤖 Запуск бота...")
+    init_db()
+    initialize_channels()
+    
+    # Фоновая проверка каналов (если нужно)
+    threading.Thread(target=check_channels_activity, daemon=True).start()
+    
+    print("✅ Бот готов к работе!")
+    
+    while True:
+        try:
+            print("→ Запуск polling...")
+            bot.polling(
+                non_stop=True,
+                interval=0.5,    
+                timeout=15,     
+                long_polling_timeout=10
+            )
+        except Exception as e:
+            logging.error(f"Polling упал: {e}", exc_info=True)
+            time.sleep(3)  
 
 if __name__ == '__main__':
     main()
