@@ -4722,18 +4722,22 @@ def show_daily_spin_info(call):
     bot.answer_callback_query(call.id)
 
 def do_daily_spin(call):
-    """Выполнить ежедневный спин"""
+    """Выполнить ежедневный спин и показать результат"""
     user_id = call.from_user.id
-    
+   
+    # Проверка, можно ли крутить сегодня
     if not can_spin_daily(user_id):
         bot.answer_callback_query(call.id, "❌ Вы уже крутили спин сегодня!", show_alert=True)
         return
-    
+   
+    # Выполняем спин и получаем результат + награду
     spin_result, reward = perform_daily_spin(user_id)
-    
+   
+    # Эмодзи для слотов
     slots_emoji = {1: '🍎', 2: '🍊', 3: '🍋', 4: '🍌', 5: '🍉', 6: '🍓', 7: '⭐'}
     spin_display = ' '.join([slots_emoji.get(s, str(s)) for s in spin_result])
-    
+   
+    # Формируем заголовок и сообщение в зависимости от результата
     if spin_result == [7, 7, 7]:
         title = "🎉 ДЖЕКПОТ! 777!"
         msg = f"Невероятно! Вы выбросили 777!\n\n{spin_display}\n\n💰 Ваш выигрыш: <b>100₽</b>"
@@ -4744,26 +4748,42 @@ def do_daily_spin(call):
     else:
         title = "🎰 Спин"
         msg = f"{spin_display}\n\n💰 Ваш выигрыш: <b>{reward}₽</b>"
-    
+   
+    # Получаем актуальный баланс
     cursor = db_conn.cursor()
     cursor.execute('SELECT balance FROM users WHERE user_id = ?', (user_id,))
-    new_balance = cursor.fetchone()[0]
-
+    row = cursor.fetchone()
+    
     if row is None:
         bot.answer_callback_query(call.id, "Профиль не найден. Нажмите /start", show_alert=True)
         return
     
-    text = f"{title}\n\n{msg}\n\n💵 Ваш баланс: {new_balance:.2f}₽\n\nВернитесь завтра за новым спином!"
-    
+    new_balance = row[0]  # здесь уже безопасно берём значение
+   
+    # Финальное сообщение
+    text = f"{title}\n\n{msg}\n\n💵 Ваш баланс: <b>{new_balance:.2f}₽</b>\n\nВернитесь завтра за новым спином!"
+   
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton("🏠 К заданиям", callback_data='tasks'))
-    
+   
+    # Пытаемся отредактировать сообщение, если не получается — отправляем новое
     try:
-        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, 
-                             reply_markup=keyboard, parse_mode='HTML')
-    except:
-        bot.send_message(call.message.chat.id, text, reply_markup=keyboard, parse_mode='HTML')
-    
+        bot.edit_message_text(
+            text,
+            call.message.chat.id,
+            call.message.message_id,
+            reply_markup=keyboard,
+            parse_mode='HTML'
+        )
+    except Exception:
+        bot.send_message(
+            call.message.chat.id,
+            text,
+            reply_markup=keyboard,
+            parse_mode='HTML'
+        )
+   
+    # Уведомление о выигрыше (без алерта, чтобы не раздражать)
     bot.answer_callback_query(call.id, f"✅ +{reward}₽!", show_alert=False)
 
 # Функция получения ежедневного бонуса
